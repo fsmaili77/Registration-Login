@@ -9,7 +9,7 @@ function App() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
-  const [loginStatus, setLoginStatus] = useState("");
+  const [loginStatus, setLoginStatus] = useState(false);
 
   Axios.defaults.withCredentials = true;
 
@@ -27,10 +27,12 @@ function App() {
       username: username,
       password: password,
     }).then((response) => {
-      if (response.data.message) {
-        setLoginStatus(response.data.message);
+      if (!response.data.auth) {
+        setLoginStatus(false);
       } else {
-        setLoginStatus(response.data[0].username);
+        localStorage.setItem("token", response.data.token);
+        //console.log(response.data)
+        setLoginStatus(true);
       }
     });
   };
@@ -43,6 +45,16 @@ function App() {
     });
 
   }, [])
+
+  const userAuthenticated = () => {
+    Axios.get("http://localhost:3001/isUserAuth", {
+      headers: {
+        "x-access-token": localStorage.getItem("token")
+      },
+    }).then((response) => {
+      console.log(response);
+    })
+  }
 
   return (
     <div className="App">
@@ -84,7 +96,7 @@ function App() {
         <button onClick={login}> Login </button>
       </div>
 
-      <h1>{loginStatus}</h1>
+      <h1>{loginStatus && <button onClick= {userAuthenticated}>Check if authenticated</button>}</h1>
     </div>
   );
 }

@@ -10,6 +10,8 @@ const bcrypt = require("bcrypt");
 const { response } = require("express");
 const saltRounds = 10;
 
+const jwt = require("jsonwebtoken");
+
 const app = express();
 
 app.use(express.json());
@@ -56,10 +58,29 @@ const db = mysql.createConnection({
           console.log(username);
         }
       );
-    })
-
-    
+    })    
   });
+
+  const verifyJWT = (req, res, next) => {
+    const token = req.headers["x-access-token"]
+
+    if (!token) {
+      res.send("We need a token, please give it to us next time !")
+    } else {
+      jwt.verify(token, "jwtSecret", (err, decoded) => {
+        if (err) {
+          res.json({auth: false, message: "You failed to authenticate"});
+        } else {
+          req.userId = decoded.id;
+          next();
+        }
+      });
+    }
+  };
+
+  app.get("/isUserAuth", verifyJWT, (req, res) => {
+    res.send("Hey, you are authenticated, Congrats !")
+  })
 
   app.get("/login", (req, res) => {
     if (req.session.user) {
@@ -84,15 +105,22 @@ const db = mysql.createConnection({
       if (result.length > 0) {
         bcrypt.compare(password, result[0].password, (error, response) => {
           if (response) {
+            //Authentication
+            const id = result[0].id
+            const token = jwt.sign({id}, "jwtSecret", {
+              expiresIn: 300, //5 minutes
+            })
             req.session.user = result;
-            console.log(req.session.user);
-            res.send(result);
+            
+            res.json({auth: true, token: token, result: result});
           } else {
-        res.send({ message: "Wrong username/password combination !"});
+            res.json({ 
+              auth: false, 
+              message: "Wrong username/password combination !"});
         }        
-      }) 
+      }); 
       } else {
-        res.send({ message: "User doesn't exist !"});
+        res.json({ auth: false, message: "User doesn't exist !"});
       }
     }
     );
